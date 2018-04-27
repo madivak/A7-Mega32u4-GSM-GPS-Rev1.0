@@ -1,22 +1,25 @@
-
 #define DEBUG true
 
 char byteGPS=-1;
 char linea[150] = "";
-//char comandoGPR[7] = "$GPRMC";
-char comandoGPR[7] = "+GPSRD";
+char comandoRMC[7] = "$GPRMC";
+char comandoSRD[7] = "+GPSRD";
 int cont=0;
 int bien=0;
+int bien1=0;
 int conta=0;
 int indices[13];
+int y=0;
+int x=0;
 
 int GPS_time=200;                        // When the board gets the 30 times location information successfully and the location information will be send by sms.      
 String target_phone = "+2547XXXXXXXX"; // Your phone number,be careful need to add a country code before the cellphone number
 
-//String GPS_position="";
 String RMC="";
+String SRD="";
 int GPS_position_count=0;
 int datacount=0;
+int datacount1=0;
 void setup()
 {
   Serial.begin(115200);
@@ -55,82 +58,86 @@ void testgps()
      byteGPS=Serial1.read();  
     // Read a byte of the serial port
     if (byteGPS == -1) 
-     {       
-    // See if the port is empty yet
-      } 
+     {  /* See if the port is empty yet*/ } 
     else 
     {
      // note: there is a potential buffer overflow here!
      linea[conta]=byteGPS;        // If there is serial port data, it is put in the buffer
      conta++;
      datacount++;
+     datacount1++;
                           
      Serial.print(byteGPS);    //If you delete '//', you will get the all GPS information
-     if (byteGPS==13){
+              
+     if (byteGPS==13)
+     {
       // If the received byte is = to 13, end of transmission
       // note: the actual end of transmission is <CR><LF> (i.e. 0x13 0x10)
       cont=0;
       bien=0;
+      bien1=0;
       // The following for loop starts at 1, because this code is clowny and the first byte is the <LF> (0x10) from the previous transmission.
        for (int i=1;i<7;i++)     // Verifies if the received command starts with $GPR
        {
-          if (linea[i]==comandoGPR[i-1]){
-           bien++;
-         }
+          if (linea[i]==comandoSRD[i-1])
+            {bien++;}
        }
-       if(bien==6)
+       for (int i=1;i<7;i++)     // Verifies if the received command starts with $GPR
+       {
+          if (linea[i]==comandoRMC[i-1])
+            {bien1++;}
+       }
+       
+   //-----------------------------------------------------------------------       
+       if(bien==6) // If initial characters match "+GPSRD" string, process the data
        { 
-        
-        // If yes, continue and process the data
-        //Data Partitioning
+
+          for (int i=8;i<datacount;i++) // i=8 is to remove the preceeding +GPSRD from GGA string
+           {
+              SRD+=linea[i];                   
+           }
+           y=1;
+           Serial.print("\r\nGPSRD character count is: ");
+           Serial.println(SRD.length());
+       }
+       if(bien1==6) // If initial characters match "+GPSRD" string, process the data
+       { 
    //-----------------------------------------------------------------------
-          
-          for (int i=1;i<datacount;i++)
+          for (int i=1;i<datacount1;i++)
            {
               RMC+=linea[i];                   
            }
+           x=1;
+           Serial.print("\r\nGPRMC character count is: ");
+           Serial.println(RMC.length());
+       }
+       int z = x+y;
+       if (z==2)      
+       {
           sendData("AT+GPSRD=0",2000,DEBUG);
-          Serial.print("GPRMC character count is: ");
-          Serial.println(datacount);
           delay(500);
-          TCP_GPRS(RMC);
-  //-----------------------------------------------------------------------          
-          GPS_position_count++;
-          if(GPS_position_count==GPS_time)
-            {
-              GPS_position_count=0;          //Reset count
-              SendTextMessage(RMC); 
-            }
-  //-----------------------------------------------------------------------  
+          TCP_GPRS(SRD,RMC);
           RMC="";
+          SRD="";
+          x=0;
+          y=0;
           sendData("AT+GPSRD=1",2000,DEBUG);         
        }
-       //GPS_position="";
+       else{}
+       //-----------------------------------------------------------------------
        conta=0;
        datacount=0;
+       datacount1=0;
        // Reset the buffer  
        for (int i=0;i<150;i++)
        {    //  
         linea[i]=' ';             
        }           
-     }
-   }  
-  }
-}
+     } //byteGPS==13
+   }  //else byteGPS is not null
+  } //Serial1.available
+} //testGPS
 
-void SendTextMessage(String message)
-{ 
-  sendData("AT+CMGF=1",5000,DEBUG);            //Set the SMS in text mode
-  delay(100);
-  sendData("AT+CMGS="+target_phone,2000,DEBUG);//send sms message to the cellphone , be careful need to add a country code before the cellphone number
-  delay(100);
-  sendData("#CAR PLATE NO:[KCQ 450R]\r\n$GPGGA,173700.000,,S,,E,1,03,3.2,1586.7,M,,M,,0000*63"+message,2000,DEBUG);
-  delay(100);
-  Serial1.println((char)26);                  //the ASCII code of the ctrl+z is 26
-  delay(1000);
-  sendData("",2000,DEBUG);                     //Clear serial data
-  delay(100);
-}
 
 void sendData(String command, const int timeout, boolean debug)
 {
@@ -147,21 +154,8 @@ void sendData(String command, const int timeout, boolean debug)
     }    
 }
 
-void checkbuffer(const int timeout)
- {
-    long int time = millis();
-    while( (time+timeout) > millis())
-    {
-      while(Serial1.available())
-      {       
-        Serial.write(Serial1.read());
-      }  
-    }
- }
-
- void TCP_GPRS(String GPS)
+ void TCP_GPRS(String GPS0, String GPS1)
 {
-  
   sendData("AT",2000,DEBUG); 
   sendData("AT+CGATT=1",2000,DEBUG);
   sendData("AT+CIPMUX=0",2000,DEBUG);
@@ -170,7 +164,7 @@ void checkbuffer(const int timeout)
   sendData("AT+CIFSR",3000,DEBUG); 
   sendData("AT+CIPSTART=\"TCP\",IP,PORT",3000,DEBUG);
   sendData("AT+CIPSEND",2000,DEBUG);
-  sendData("#CAR PLATE NO:[KCQ 450R]\r\n$GPGGA,173700.000,,S,,E,1,03,3.2,1586.7,M,,M,,0000*63\r\n"+GPS+"\r\nBUFF[13] = 1\r\nCar status is = 1\r\nText no# is :07XXXXXXXX",2000,DEBUG);
+  sendData("#CAR PLATE NO:[KCQ 450R]\r\r\n"+GPS0+"\r\n"+GPS1+"\r\nBUFF[13] = 1\r\r\nCar status is = 1\r\r\nText no# is :07XXXXXXXX",2000,DEBUG);
   delay(100);
   Serial1.println((char)26);                  //the ASCII code of the ctrl+z is 26
   delay(1000); 
@@ -178,3 +172,4 @@ void checkbuffer(const int timeout)
   sendData("AT+CIPCLOSE",2000,DEBUG);
   sendData("AT+CIPSHUT",2000,DEBUG);
 }
+
