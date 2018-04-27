@@ -164,7 +164,7 @@ void sendData(String command, const int timeout, boolean debug)
   sendData("AT+CIFSR",3000,DEBUG); 
   sendData("AT+CIPSTART=\"TCP\",IP,PORT",3000,DEBUG);
   sendData("AT+CIPSEND",2000,DEBUG);
-  sendData("#CAR PLATE NO:[KCQ 450R]\r\r\n"+GPS0+"\r\n"+GPS1+"\r\nBUFF[13] = 1\r\r\nCar status is = 1\r\r\nText no# is :07XXXXXXXX",2000,DEBUG);
+  sendData("#CAR PLATE NO:[KCQ 450R]\r\r\n"+GPS0+"\r\n"+GPS1+"\r\nBUFF[13] = 1\r\r\nCar status is = 1\r\r\nText no# is :07XXXXXXXX\r",2000,DEBUG);
   delay(100);
   Serial1.println((char)26);                  //the ASCII code of the ctrl+z is 26
   delay(1000); 
