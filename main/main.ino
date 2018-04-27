@@ -111,8 +111,7 @@ void testgps()
            Serial.print("\r\nGPRMC character count is: ");
            Serial.println(RMC.length());
        }
-       int z = x+y;
-       if (z==2)      
+       if (x==1 && y==1)     
        {
           sendData("AT+GPSRD=0",2000,DEBUG);
           delay(500);
